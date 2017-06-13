@@ -1,0 +1,18 @@
+---
+- hosts: all
+  user: root
+  vars:
+    http_port: 80
+    max_clients: 200
+  tasks:
+  - include: base.yml favcolor=blue
+  - name: write the foo config file using vars set above
+    action: template src=foo.j2 dest=/etc/some_random_foo.conf
+    notify:
+    - restart apache
+  - name: ensure apache is running
+    action: service name=httpd state=started
+  - name: pointless test action
+    action: command /bin/echo {{ http_port }}
+  handlers:
+    - include: handlers.yml

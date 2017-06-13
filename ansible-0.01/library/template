@@ -1,0 +1,110 @@
+#!/usr/bin/python
+
+# (c) 2012, Michael DeHaan <michael.dehaan@gmail.com>
+#
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+import os
+import jinja2
+import shlex
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
+# ===========================================
+# convert arguments of form a=b c=d
+# to a dictionary
+# FIXME: make more idiomatic
+
+args = " ".join(sys.argv[1:])
+items = shlex.split(args)
+params = {}
+for x in items:
+    (k, v) = x.split("=")
+    params[k] = v
+
+source  = params['src']
+dest    = params['dest']
+metadata = params.get('metadata', '/etc/ansible/setup') 
+
+ 
+# raise an error if there is no template metadata
+if not os.path.exists(metadata):
+    print json.dumps({
+        "failed" : 1,
+        "msg"    : "Missing %s, did you run the setup module yet?" % metadata
+    })
+    sys.exit(1)
+
+# raise an error if we can't parse the template metadata
+try:
+   f = open(metadata)
+   data = json.loads(f.read())
+   f.close()
+except:
+   print json.dumps({
+       "failed" : 1,
+       "msg"    : "Failed to parse/load %s, rerun the setup module?" % metadata
+   })
+   sys.exit(1)
+
+if not os.path.exists(source):
+    print json.dumps({
+        "failed" : 1,
+        "msg"    : "Source template could not be read: %s" % source
+    })
+    sys.exit(1)
+
+source = file(source).read()
+
+if os.path.isdir(dest):
+    print json.dumps({
+         "failed" : 1,
+         "msg"    : "Destination is a directory"
+    })
+    sys.exit(1)
+
+# record md5sum of original source file so we can report if it changed
+changed = False
+md5sum = None
+if os.path.exists(dest):
+    md5sum = os.popen("md5sum %s" % dest).read().split()[0]
+
+# call Jinja2 here and save the new template file
+template = jinja2.Template(source)
+data_out = template.render(data)
+f = open(dest, "w+")
+f.write(data_out)
+f.close()
+
+# TODO: catch templating errors and do not clobber the file on the
+# other end unless things were successful
+
+# record m5sum and return success and whether things have changed
+md5sum2 = os.popen("md5sum %s" % dest).read().split()[0]
+
+if md5sum != md5sum2:
+    changed = True
+
+# mission accomplished
+print json.dumps({
+   "md5sum"   : md5sum2,
+   "changed"  : changed 
+})
+
+

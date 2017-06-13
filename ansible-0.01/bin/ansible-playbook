@@ -1,0 +1,104 @@
+#!/usr/bin/python -tt
+# (C) 2012, Michael DeHaan, <michael.dehaan@gmail.com>
+
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+
+#######################################################
+
+import sys
+import ansible.playbook
+import ansible.constants as C
+from ansible.utils import *
+import getpass
+from optparse import OptionParser
+
+#######################################################
+
+class PlaybookCallbacks(object):
+  
+    def __init__(self):
+        pass
+
+    def set_playbook(self, playbook):
+        self.playbook = playbook
+
+    def on_start(self):
+        print "\n"
+
+    def on_task_start(self, name, is_conditional):
+        print task_start_msg(name, is_conditional)
+
+    def on_unreachable(self, host, msg):
+        print "unreachable: [%s] => %s" % (host, msg)
+
+    def on_failed(self, host, results):
+        print "failed: [%s] => %s\n" % (host, smjson(results))
+ 
+    def on_ok(self, host):
+        print "ok: [%s]\n" % (host)
+
+    def on_play_start(self, pattern):
+        print "PLAY [%s] ****************************\n" % pattern
+
+
+def main(args):
+    ''' run ansible-playbook operations '''
+
+    # create parser for CLI options
+    parser = OptionParser()
+    parser.usage = "ans-playbook playbook.yml ..."
+    parser.add_option('-f','--forks', dest='forks', default=C.DEFAULT_FORKS, type='int',
+        help='set the number of forks to start up')
+    parser.add_option("-i", "--inventory-file", dest="inventory",
+        help="inventory host file", default=C.DEFAULT_HOST_LIST)
+    parser.add_option("-k", "--ask-pass", default=False, action="store_true",
+        help="ask for SSH password")
+    parser.add_option("-M", "--module-path", dest="module_path",
+        help="path to module library", default=C.DEFAULT_MODULE_PATH)
+
+    options, args = parser.parse_args(args)
+
+    if len(args) == 0:
+        print >> sys.stderr, "playbook path is a required argument"
+        return 1
+
+    sshpass = None
+    if options.ask_pass:
+        sshpass = getpass.getpass(prompt="SSH password: ")
+
+    # run all playbooks specified on the command line
+    for playbook in args:
+        pb = ansible.playbook.PlayBook(
+            playbook=playbook,
+            host_list=options.inventory,
+            module_path=options.module_path,
+            forks=options.forks,
+            verbose=True,
+            remote_pass=sshpass,
+            callbacks=PlaybookCallbacks()
+        )
+        pb.run()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
+
+
+
+
+

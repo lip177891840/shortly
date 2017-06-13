@@ -1,0 +1,141 @@
+#!/usr/bin/python
+
+# (c) 2012, Michael DeHaan <michael.dehaan@gmail.com>
+#
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+
+########################################################
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
+from optparse import OptionParser
+import sys
+import os
+import getpass
+import shlex
+import ansible.runner
+import ansible.playbook
+import ansible.constants as C
+from optparse import OptionParser
+from ansible.utils import *
+
+########################################################
+
+class Cli(object):
+    ''' code behind bin/ansible '''
+    
+    # ----------------------------------------------     
+
+    def __init__(self):
+        pass
+
+    # ----------------------------------------------     
+
+    def parse(self):
+        ''' create an options parser for bin/ansible '''
+
+        parser = OptionParser(usage = 'ansible <host-pattern> [options]')
+        parser.add_option("-a", "--args", dest="module_args",
+            help="module arguments", default=C.DEFAULT_MODULE_ARGS)
+        parser.add_option("-B", "--background", dest="seconds", default=0,
+            help="run asynchronously, failing after X seconds")
+        parser.add_option('-f','--forks', dest='forks', default=C.DEFAULT_FORKS, type='int',
+            help='number of parallel processes to use')
+        parser.add_option("-i", "--inventory-file", dest="inventory",
+           help="inventory host file", default=C.DEFAULT_HOST_LIST)
+        parser.add_option("-k", "--ask-pass", default=False, action="store_true",
+            help="ask for SSH password")
+        parser.add_option("-M", "--module-path", dest="module_path",
+           help="path to module library", default=C.DEFAULT_MODULE_PATH)
+        parser.add_option("-m", "--module-name", dest="module_name",
+            help="module name to execute", default=C.DEFAULT_MODULE_NAME)
+        parser.add_option('-o', '--one-line', dest='one_line', action='store_true',
+            help="condense output")
+        parser.add_option('-t', '--tree', dest='tree', default=None,
+            help="log output to this directory")
+        parser.add_option('-T', '--timeout', default=C.DEFAULT_TIMEOUT, type='int',
+            dest='timeout', help="set the SSH timeout in seconds")
+        parser.add_option('-u', '--user', default=C.DEFAULT_REMOTE_USER,
+            dest='remote_user', help='connect as this user')
+        options, args = parser.parse_args()
+        
+        if len(args) == 0 or len(args) > 1:
+            parser.print_help()
+            sys.exit(1)
+        return (options, args)   
+    
+    # ----------------------------------------------     
+ 
+    def run(self, options, args):
+        ''' use Runner lib to do SSH things '''
+
+        pattern = args[0]
+        sshpass = None
+        if options.ask_pass:
+            sshpass = getpass.getpass(prompt="SSH password: ")
+
+        return ansible.runner.Runner(
+            module_name=options.module_name,
+            module_path=options.module_path,
+            module_args=shlex.split(options.module_args),
+            remote_user=options.remote_user,
+            remote_pass=sshpass,
+            host_list=options.inventory,
+            timeout=options.timeout,
+            forks=options.forks,
+            background=options.seconds,
+            pattern=pattern,
+            verbose=True,
+        ).run()
+
+    # ----------------------------------------------     
+
+    def output(self, results, options, args):
+        ''' summarize results from Runner '''
+
+        if results is None:
+           exit("No hosts matched")
+        if options.tree:
+            prepare_writeable_dir(options.tree)
+
+        buf = '' 
+        for hostname in contacted_hosts(results):
+            msg = host_report_msg(
+                hostname, 
+                options.module_name, 
+                contacted_host_result(results, hostname),
+                options.one_line
+            )
+            if options.tree:
+                write_tree_file(options.tree, hostname, bigjson(results))
+            buf += msg
+            
+        if has_dark_hosts(results):
+            buf += dark_hosts_msg(results)
+
+        print buf
+
+########################################################
+
+if __name__ == '__main__':
+    cli = Cli()
+    (options, args) = cli.parse()
+    results = cli.run(options, args)
+    cli.output(results, options, args)
+    
+

@@ -1,0 +1,108 @@
+ansible(1)
+=========
+:doctype:manpage
+:man source:   Ansible
+:man version:  0.0.1
+:man manual:   System administration commands
+
+NAME
+----
+ansible - run a command somewhere else
+
+
+SYNOPSIS
+--------
+ansible <host-pattern> [-f forks] [-m module_name] [-a args]
+
+
+DESCRIPTION
+-----------
+
+*Ansible* is an extra-simple tool/framework/API for doing \'remote things' over
+SSH.
+
+
+ARGUMENTS
+---------
+
+*host-pattern*::
+
+A name of a group in the inventory file, a shell-like glob selecting hosts in inventory
+file, or any combination of the two seperated by semicolons.
+
+
+OPTIONS
+-------
+
+
+*-i*, *--inventory*::
+
+Path to the inventory hosts file, which defaults to /etc/ansible/hosts.
+
+
+*-f*, *--forks*::
+
+Level of parallelism. Specify as an integer, the default is 5.
+
+
+*-m*, *--module-name*::
+
+Module name to execute.
+
+
+*-p*, *--pattern*::
+
+Hostname pattern. Accepts shell-like globs which can be seperated with ";"
+The default is "*" which matches all hosts in the ansible hosts file.  Group
+names from the ansible inventory file can also be used.
+
+
+See ansible --help for additional options.
+
+
+INVENTORY
+---------
+
+Ansible stores the hosts it can potentially operate on in an inventory
+file. The syntax is one host per line.  Groups headers are allowed and
+are included on their own line, enclosed in square brackets.
+
+FILES
+-----
+
+/etc/ansible/hosts -- Default hosts file
+
+/usr/share/ansible -- Default module library
+
+
+ENVIRONMENT
+-----------
+
+The following environment variables may specified.
+
+ANSIBLE_HOSTS  -- Override the default ansible hosts file
+
+ANSIBLE_LIBRARY -- Override the default ansible module library path
+
+
+AUTHOR
+------
+
+Ansible was originally written by Michael DeHaan. See the AUTHORS file
+for a complete list of contributors.
+
+
+COPYRIGHT
+---------
+
+Copyright © 2012, Michael DeHaan
+
+Ansible is released under the terms of the GPLv3 License.
+
+
+SEE ALSO
+--------
+
+Ansible home page: <https://ansible.github.com/>
+
+

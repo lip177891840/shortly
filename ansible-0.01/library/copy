@@ -1,0 +1,72 @@
+#!/usr/bin/python
+
+# (c) 2012, Michael DeHaan <michael.dehaan@gmail.com>
+#
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import sys
+import os
+import shlex
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
+# ===========================================
+# convert arguments of form a=b c=d
+# to a dictionary
+# FIXME: make more idiomatic
+
+args = " ".join(sys.argv[1:])
+items = shlex.split(args)
+params = {}
+for x in items:
+    (k, v) = x.split("=")
+    params[k] = v
+
+src  = params['src']
+dest = params['dest']
+
+ 
+# raise an error if there is no src file
+if not os.path.exists(src):
+    print json.dumps({
+        "failed" : 1,
+        "msg"    : "Source %s failed to transfer" % src
+    })
+    sys.exit(1)
+
+md5sum = None
+changed = False
+if os.path.exists(dest):
+    md5sum = os.popen("md5sum %s" % dest).read().split()[0]
+
+os.system("cp %s %s" % (src, dest))
+
+md5sum2 = os.popen("md5sum %s" % dest).read().split()[0]
+
+if md5sum != md5sum2:
+    changed = True
+
+# mission accomplished
+print json.dumps({
+   "md5sum"   : md5sum2,
+   "changed"  : changed 
+})
+
+
